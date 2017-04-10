@@ -21,6 +21,7 @@ function UPnPClient(deviceDescriptionUrl) {
   this.eventListenServer = null;
   this.eventSubscriptions = {};
   EventEmitter.call(this);
+  this.eventListenServerListening = false;
 }
 
 UPnPClient.prototype.getDeviceDescriptionParsed = function(callback, forceReload) {
@@ -240,7 +241,7 @@ UPnPClient.prototype.subscribe = function(serviceType, callback, forceReload) {
       return;
     }
     var eventURL = serviceDescription['eventURL'];
-    if(me.eventListenServer && eventURL) {
+    if(me.eventListenServer && me.eventListenServerListening && eventURL) {
       var eventURLAbsolute = me.deviceURL + eventURL;
       var eventAlreadySubscribed = false;
       Object.keys(me.eventSubscriptions).forEach(function(sid) {
@@ -278,6 +279,9 @@ UPnPClient.prototype.subscribe = function(serviceType, callback, forceReload) {
         callback(err);
       });
       req.end();
+    } else {
+      var err = new Error('No event listen server listening');
+      callback(err);
     }
   }, forceReload);
 }
@@ -290,7 +294,7 @@ UPnPClient.prototype.unsubscribe = function(serviceType, callback) {
       return;
     }
     var eventURL = serviceDescription['eventURL'];
-    if(me.eventListenServer && eventURL) {
+    if(eventURL) {
       var eventURLAbsolute = me.deviceURL + eventURL;
       var eventSubscribed = false;
       var eventSid;
@@ -362,8 +366,12 @@ UPnPClient.prototype.createEventListenServer = function(callback) {
     this.eventListenServer.listen(0, address.ipv4());
     this.eventListenServer.on('listening', function() {
       me.emit('eventListenServerListening', true);
-      callback();
+      me.eventListenServerListening = true;
+      if(callback) {
+        callback();
+      }
     });
+    //TODO /*this.eventListenServer.on('close', function() {});*/
   }
 }
 
@@ -376,6 +384,7 @@ UPnPClient.prototype.closeEventListenServer = function(callback) {
   me.eventListenServer.close();
   me.eventListenServer = null;
   me.emit('eventListenServerListening', false);
+  me.eventListenServerListening = false;
   callback();
 }
 
