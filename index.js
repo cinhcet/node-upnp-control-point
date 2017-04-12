@@ -49,6 +49,9 @@ UPnPClient.prototype.getDeviceDescriptionParsed = function(callback, forceReload
         }
         var services = me.deviceDescriptionParsed['description']['root']['device']['serviceList']['service'];
         me.deviceDescriptionParsed.services = {};
+        if(!Array.isArray(services)) {
+          services = [services];
+        }
         for(var i = 0; i < services.length; i++) {
           var service = services[i];
           var serviceType = service['serviceType'];
@@ -121,6 +124,9 @@ UPnPClient.prototype.getServiceDescriptionParsed = function(serviceType, callbac
             serviceDescriptionParsed.actions = {};
             var actions = serviceDescriptionParsed['description']['scpd']['actionList']['action'];
             serviceDescriptionParsed.actions = {};
+            if(!Array.isArray(actions)) {
+              actions = [actions];
+            }
             for(var i = 0; i < actions.length; i++) {
               var action = actions[i];
               serviceDescriptionParsed.actions[action['name']] = {};
@@ -156,11 +162,67 @@ UPnPClient.prototype.invokeActionParsed = function(actionName, args, serviceType
           callback(err);
           return;
         }
-        parsedData.raw = res;
-        callback(null, parsedData);
+        extractActionResponse(parsedData, actionName, serviceType, function(err, extractedData) {
+          if(err) {
+            callback(err);
+          } else {
+            var returnedData = extractedData;
+            returnedData.raw = res;
+            callback(null, returnedData);
+          }
+        });
       });
     });
   }, forceReload);
+}
+
+function extractActionResponse(parsedData, actionName, serviceType, callback) {
+  var keys = Object.keys(parsedData);
+  var error = new Error('I do not understand the action response');
+  if(keys.length != 1) {
+    callback(error);
+    return;
+  }
+  if(keys[0].indexOf('Envelope') < 0) {
+    callback(error);
+    return;
+  }
+  parsedData = parsedData[keys[0]];
+  keys = Object.keys(parsedData);
+  if(keys.length != 2) {
+    callback(error);
+    return;
+  }
+  var index;
+  if(keys[0] === '$') {
+    index = 1;
+  } else {
+    index = 0;
+  }
+  if(keys[index].indexOf('Body') < 0) {
+    callback(error);
+    return;
+  }
+  parsedData = parsedData[keys[index]];
+  keys = Object.keys(parsedData);
+  if(keys.length != 1) {
+    callback(error);
+    return;
+  }
+  var splittedKeys = keys[0].split(':');
+  if(splittedKeys.length != 2) {
+    callback(error);
+    return;
+  }
+  var key = splittedKeys[1];
+  if(key.indexOf(actionName + 'Response') < 0) {
+    callback(error);
+    return;
+  }
+  parsedData = parsedData[keys[0]];
+  var d = {};
+  d[key] = parsedData;
+  callback(null, d);
 }
 
 UPnPClient.prototype.getDeviceDescriptionRaw = function(callback) {
@@ -263,12 +325,13 @@ UPnPClient.prototype.subscribe = function(serviceType, callback, forceReload) {
       var req = http.request(opts, function(res) {
         if(res.headers.hasOwnProperty('sid') && res.headers.hasOwnProperty('timeout')) {
           var sid = res.headers.sid;
-          var parsedEventTimeout = parseInt(res.headers['timeout'].substr(7))*1000;
+          var parsedEventTimeout = parseInt(res.headers['timeout'].substr(7))*1000-10000;
           me.eventSubscriptions[sid] = {'eventURL': eventURL
                                         ,'serviceType': serviceType};
           me.eventSubscriptions[sid]['timer'] = setTimeout(function() {
             me.renewEventSubscription(eventURL, sid);
           }, parsedEventTimeout);
+          me.emit('subscribed', {'sid': sid, 'serviceType': serviceType});
           callback(null);
         } else {
           var err = new Error('Header malformed');
@@ -324,6 +387,8 @@ UPnPClient.prototype.unsubscribe = function(serviceType, callback) {
           callback(err);
         });
         req.end();
+      } else {
+        callback(null);
       }
     }
   });
@@ -400,10 +465,11 @@ UPnPClient.prototype.renewEventSubscription = function renewEventSubscription(ev
   var req = http.request(opts, function(res) {
     if(res.headers.hasOwnProperty('sid') && res.headers.hasOwnProperty('timeout')) {
       var sid = res.headers.sid;
-      var parsedEventTimeout = parseInt(res.headers['timeout'].substr(7))*1000;
+      var parsedEventTimeout = parseInt(res.headers['timeout'].substr(7))*1000-10000;
       me.eventSubscriptions[sid]['timer'] = setTimeout(function() {
         me.renewEventSubscription(eventURL, sid);
       }, parsedEventTimeout);
+      me.emit('subscribed', {'sid': sid, 'serviceType': me.eventSubscriptions[sid]['serviceType']});
     } else {
       var err = new Error('Header malformed');
       me.emit('error', err);
