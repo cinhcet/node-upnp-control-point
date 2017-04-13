@@ -1,5 +1,5 @@
 {
-  "name": "node-upnp-client",
+  "name": "node-upnp-control-point",
   "version": "0.0.1",
   "description": "A upnp control point library useful for control, eventing, device and service description",
   "main": "index.js",
@@ -9,14 +9,14 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cinhcet/node-upnp-client.git"
+    "url": "git+https://github.com/cinhcet/node-upnp-control-point.git"
   },
   "author": "cinhcet",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/cinhcet/node-upnp-client/issues"
+    "url": "https://github.com/cinhcet/node-upnp-control-point/issues"
   },
-  "homepage": "https://github.com/cinhcet/node-upnp-client#readme",
+  "homepage": "https://github.com/cinhcet/node-upnp-control-point#readme",
   "dependencies": {
     "ip": "^1.1.5",
     "xml2js": "^0.4.17"

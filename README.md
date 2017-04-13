@@ -1,4 +1,4 @@
-# node-upnp-client
+# node-upnp-control-point
 This is a simple UPnP&trade; control point library, which allows you to control an UPnP&trade; device and receive events from it.
 
 ## Functionality
@@ -17,15 +17,15 @@ var deviceXML = 'http://IP:PORT/description.xml';
 ```
 Then create an instance
 ```javascript
-var UPnPClient = require('node-upnp-client');
+var UPnPControlPoint = require('node-upnp-control-point');
 var deviceXML = 'http://IP:PORT/description.xml';
-var cp = new UPnPClient(deviceXML);
+var cp = new UPnPControlPoint(deviceXML);
 ```
 and retrieve the device description
 ```javascript
-var UPnPClient = require('node-upnp-client');
+var UPnPControlPoint = require('node-upnp-control-point');
 var deviceXML = 'http://IP:PORT/description.xml';
-var cp = new UPnPClient(deviceXML);
+var cp = new UPnPControlPoint(deviceXML);
 
 var util = require("util");
 
@@ -35,9 +35,9 @@ cp.getDeviceDescriptionParsed(function(err, data) {
 ```
 Assume you want control a media renderer which implements a AVTransportService of version 1, then
 ```javascript
-var UPnPClient = require('node-upnp-client');
+var UPnPControlPoint = require('node-upnp-control-point');
 var deviceXML = 'http://IP:PORT/description.xml';
-var cp = new UPnPClient(deviceXML);
+var cp = new UPnPControlPoint(deviceXML);
 
 var util = require("util");
 
@@ -49,12 +49,12 @@ will get you the service description.
 
 You have a media server? Then test
 ```javascript
-var UPnPClient = require('node-upnp-client');
+var UPnPControlPoint = require('node-upnp-control-point');
 var deviceXML = 'http://IP:PORT/description.xml';
 
 var util = require("util");
 
-var mediaServerCP = new UPnPClient(deviceXML);
+var mediaServerCP = new UPnPControlPoint(deviceXML);
 mediaServerCP.invokeActionParsed("Browse", {ObjectID: "1", BrowseFlag: "BrowseDirectChildren", Filter: "*", StartingIndex: 0}, 'urn:schemas-upnp-org:service:ContentDirectory:1', function(err, m) {
   console.log(util.inspect(m, false, null));
 });
@@ -63,9 +63,9 @@ Read the upnp specifications!
 
 You want events?
 ```javascript
-var UPnPClient = require('node-upnp-client');
+var UPnPControlPoint = require('node-upnp-control-point');
 var deviceXML = 'http://IP:PORT/description.xml';
-var cp = new UPnPClient(deviceXML);
+var cp = new UPnPControlPoint(deviceXML);
 
 cp.createEventListenServer(function() {
   cp.subscribe('urn:schemas-upnp-org:service:AVTransport:1', function(err) {

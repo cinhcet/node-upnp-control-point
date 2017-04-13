@@ -24,10 +24,10 @@ var soapMessageEnvelopeEnd = '</s:Body></s:Envelope>';
 
 var EVENT_TIMEOUT = 1801;
 
-module.exports = UPnPClient;
-util.inherits(UPnPClient, EventEmitter);
+module.exports = UPnPControlPoint;
+util.inherits(UPnPControlPoint, EventEmitter);
 
-function UPnPClient(deviceDescriptionUrl) {
+function UPnPControlPoint(deviceDescriptionUrl) {
   this.deviceDescriptionUrl = deviceDescriptionUrl;
   this.deviceURL = generateDeviceURL(deviceDescriptionUrl);
   this.deviceDescriptionParsed = null;
@@ -38,7 +38,7 @@ function UPnPClient(deviceDescriptionUrl) {
   this.eventListenServerListening = false;
 }
 
-UPnPClient.prototype.getDeviceDescriptionParsed = function(callback, forceReload) {
+UPnPControlPoint.prototype.getDeviceDescriptionParsed = function(callback, forceReload) {
   var me = this;
   if(!me.deviceDescriptionParsed || forceReload) {
     me.getDeviceDescriptionRaw(function(err, data) {
@@ -89,7 +89,7 @@ UPnPClient.prototype.getDeviceDescriptionParsed = function(callback, forceReload
   }
 }
 
-UPnPClient.prototype.getServiceDescriptionParsed = function(serviceType, callback, forceReload) {
+UPnPControlPoint.prototype.getServiceDescriptionParsed = function(serviceType, callback, forceReload) {
   var me = this;
   if(me.serviceDescriptionsParsed[serviceType] && !forceReload) {
     callback(null, me.serviceDescriptionsParsed[serviceType]);
@@ -156,7 +156,7 @@ UPnPClient.prototype.getServiceDescriptionParsed = function(serviceType, callbac
   }
 }
 
-UPnPClient.prototype.invokeActionParsed = function(actionName, args, serviceType, callback, forceReload) {
+UPnPControlPoint.prototype.invokeActionParsed = function(actionName, args, serviceType, callback, forceReload) {
   var me = this;
   this.getServiceDescriptionParsed(serviceType, function(err, serviceDescription) {
     if(err) {
@@ -242,7 +242,7 @@ function extractActionResponse(parsedData, actionName, serviceType, callback) {
   }
 }
 
-UPnPClient.prototype.getDeviceDescriptionRaw = function(callback) {
+UPnPControlPoint.prototype.getDeviceDescriptionRaw = function(callback) {
   var req = http.get(this.deviceDescriptionUrl, function(res) {
     res.setEncoding('utf8');
     var data = '';
@@ -262,7 +262,7 @@ UPnPClient.prototype.getDeviceDescriptionRaw = function(callback) {
   req.end();
 }
 
-UPnPClient.prototype.getServiceDescriptionRaw = function(serviceDescriptionUrl, callback) {
+UPnPControlPoint.prototype.getServiceDescriptionRaw = function(serviceDescriptionUrl, callback) {
   var req = http.get(this.deviceURL + serviceDescriptionUrl, function(res) {
     res.setEncoding('utf8');
     var data = '';
@@ -282,7 +282,7 @@ UPnPClient.prototype.getServiceDescriptionRaw = function(serviceDescriptionUrl, 
   req.end();
 }
 
-UPnPClient.prototype.invokeActionRaw = function(actionName, args, serviceType, controlURL, callback) {
+UPnPControlPoint.prototype.invokeActionRaw = function(actionName, args, serviceType, controlURL, callback) {
   var soapMessage = generateSOAPMessage(actionName, args, serviceType);
   var controlURLAbsolute = this.deviceURL + controlURL;
   var opts = urlLib.parse(controlURLAbsolute);
@@ -312,7 +312,7 @@ UPnPClient.prototype.invokeActionRaw = function(actionName, args, serviceType, c
 }
 
 
-UPnPClient.prototype.subscribe = function(serviceType, callback, forceReload) {
+UPnPControlPoint.prototype.subscribe = function(serviceType, callback, forceReload) {
   var me = this;
   this.getServiceDescriptionParsed(serviceType, function(err, serviceDescription) {
     if(err) {
@@ -366,7 +366,7 @@ UPnPClient.prototype.subscribe = function(serviceType, callback, forceReload) {
   }, forceReload);
 }
 
-UPnPClient.prototype.unsubscribe = function(serviceType, callback) {
+UPnPControlPoint.prototype.unsubscribe = function(serviceType, callback) {
   var me = this;
   this.getServiceDescriptionParsed(serviceType, function(err, serviceDescription) {
     if(err) {
@@ -415,7 +415,7 @@ UPnPClient.prototype.unsubscribe = function(serviceType, callback) {
   });
 }
 
-UPnPClient.prototype.createEventListenServer = function(callback) {
+UPnPControlPoint.prototype.createEventListenServer = function(callback) {
   var me = this;
   if(!this.eventListenServer) {
     this.eventListenServer = http.createServer(function(req, res) {
@@ -510,7 +510,7 @@ function parseAndExtractEvent(raw, callback) {
   });
 }
 
-UPnPClient.prototype.closeEventListenServer = function(callback) {
+UPnPControlPoint.prototype.closeEventListenServer = function(callback) {
   var me = this;
   me.eventListenServer.close(function() {
     me.eventListenServer = null;
@@ -518,7 +518,7 @@ UPnPClient.prototype.closeEventListenServer = function(callback) {
   });
 }
 
-UPnPClient.prototype.renewEventSubscription = function renewEventSubscription(eventURL, sid) {
+UPnPControlPoint.prototype.renewEventSubscription = function renewEventSubscription(eventURL, sid) {
   var me = this;
   var eventURLAbsolute = this.deviceURL + eventURL;
   var opts = urlLib.parse(eventURLAbsolute);
