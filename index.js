@@ -1,7 +1,21 @@
+/**
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ **/
+
 "use strict";
 var http = require('http');
 var urlLib = require("url");
-var address = require('network-address');
+var ip = require('ip');
 var util = require("util");
 var EventEmitter = require("events").EventEmitter;
 
@@ -164,7 +178,7 @@ UPnPClient.prototype.invokeActionParsed = function(actionName, args, serviceType
         }
         extractActionResponse(parsedData, actionName, serviceType, function(err, extractedData) {
           if(err) {
-            callback(err);
+            callback(err, res);
           } else {
             var returnedData = extractedData;
             returnedData.raw = res;
@@ -215,14 +229,17 @@ function extractActionResponse(parsedData, actionName, serviceType, callback) {
     return;
   }
   var key = splittedKeys[1];
-  if(key.indexOf(actionName + 'Response') < 0) {
+  if(key.indexOf(actionName + 'Response') >= 0) {
+    parsedData = parsedData[keys[0]];
+    var d = {};
+    d[key] = parsedData;
+    callback(null, d);
+  } else if(key.indexOf('Fault') >= 0) {
+    error = new Error('UPnP Fault');
     callback(error);
-    return;
+  } else {
+    callback(error);
   }
-  parsedData = parsedData[keys[0]];
-  var d = {};
-  d[key] = parsedData;
-  callback(null, d);
 }
 
 UPnPClient.prototype.getDeviceDescriptionRaw = function(callback) {
@@ -378,6 +395,7 @@ UPnPClient.prototype.unsubscribe = function(serviceType, callback) {
             var err = new Error('unsubscribe error');
             callback(err);
           } else {
+            me.emit('unsubscribed', {'sid': eventSid, 'serviceType': serviceType});
             clearTimeout(me.eventSubscriptions[eventSid]['timer']);
             delete me.eventSubscriptions[eventSid];
             callback(null);
@@ -390,6 +408,9 @@ UPnPClient.prototype.unsubscribe = function(serviceType, callback) {
       } else {
         callback(null);
       }
+    } else {
+      var err = new Error('Unsubscribe error: eventURL not available');
+      callback(err);
     }
   });
 }
@@ -412,10 +433,18 @@ UPnPClient.prototype.createEventListenServer = function(callback) {
         } else {
           if(me.eventSubscriptions.hasOwnProperty(sid)) {
             var serviceType = me.eventSubscriptions[sid]['serviceType'];
-            var eventMessage = {'dataRaw': data
-                                ,'seq': seq
-                                ,'serviceType': serviceType};
-            me.emit('upnpEvent', eventMessage);
+            parseAndExtractEvent(data, function(error, extractedData) {
+              if(error) {
+                me.emit('error', error);
+              } else {
+                var eventMessage = {};
+                eventMessage['events'] = extractedData;
+                eventMessage['raw'] = data;
+                eventMessage['seq'] = seq;
+                eventMessage['serviceType'] = serviceType;
+                me.emit('upnpEvent', eventMessage);
+              }
+            });
           }
         }
       });
@@ -428,7 +457,7 @@ UPnPClient.prototype.createEventListenServer = function(callback) {
         me.emit('error', err);
       });
     });
-    this.eventListenServer.listen(0, address.ipv4());
+    this.eventListenServer.listen(0, ip.address());
     this.eventListenServer.on('listening', function() {
       me.emit('eventListenServerListening', true);
       me.eventListenServerListening = true;
@@ -436,21 +465,57 @@ UPnPClient.prototype.createEventListenServer = function(callback) {
         callback();
       }
     });
-    //TODO /*this.eventListenServer.on('close', function() {});*/
+    this.eventListenServer.on('close', function() {
+      me.emit('eventListenServerListening', false);
+      me.eventListenServerListening = false;
+    });
   }
+}
+
+function parseAndExtractEvent(raw, callback) {
+  var parseXML = require('xml2js').parseString;
+  parseXML(raw, {explicitArray: false}, function(err, parsedData) {
+    if(err) {
+      callback(err);
+      return;
+    }
+    var keys = Object.keys(parsedData);
+    var error = new Error('I do not understand the event');
+    if(keys.length != 1) {
+      callback(error);
+      return;
+    }
+    if(keys[0].indexOf('propertyset') < 0) {
+      callback(error);
+      return;
+    }
+    parsedData = parsedData[keys[0]];
+    keys = Object.keys(parsedData);
+    if(keys.length != 2) {
+      callback(error);
+      return;
+    }
+    var index;
+    if(keys[0] === '$') {
+      index = 1;
+    } else {
+      index = 0;
+    }
+    if(keys[index].indexOf('property') < 0) {
+      callback(error);
+      return;
+    }
+    parsedData = parsedData[keys[index]];
+    callback(null, parsedData);
+  });
 }
 
 UPnPClient.prototype.closeEventListenServer = function(callback) {
   var me = this;
-  Object.keys(me.eventSubscriptions).forEach(function(sid) {
-      clearTimeout(me.eventSubscriptions[sid]['timer']);
-      delete me.eventSubscriptions[sid];
+  me.eventListenServer.close(function() {
+    me.eventListenServer = null;
+    callback();
   });
-  me.eventListenServer.close();
-  me.eventListenServer = null;
-  me.emit('eventListenServerListening', false);
-  me.eventListenServerListening = false;
-  callback();
 }
 
 UPnPClient.prototype.renewEventSubscription = function renewEventSubscription(eventURL, sid) {
