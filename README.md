@@ -33,7 +33,7 @@ cp.getDeviceDescriptionParsed(function(err, data) {
   console.log(util.inspect(data, false, null));
 });
 ```
-Assume you control a media renderer which implements a AVTransportService of version 1, then
+Assume you want control a media renderer which implements a AVTransportService of version 1, then
 ```javascript
 var UPnPClient = require('node-upnp-client');
 var deviceXML = 'http://IP:PORT/description.xml';
@@ -59,7 +59,7 @@ mediaServerCP.invokeActionParsed("Browse", {ObjectID: "1", BrowseFlag: "BrowseDi
   console.log(util.inspect(m, false, null));
 });
 ```
-
+Read the upnp specifications!
 
 You want events?
 ```javascript

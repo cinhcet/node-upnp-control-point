@@ -1,11 +1,12 @@
 {
   "name": "node-upnp-client",
   "version": "0.0.1",
-  "description": "A simple upnp client",
+  "description": "A upnp control point library useful for control, eventing, device and service description",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "keywords": [
+    "upnp",
+    "control-point"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cinhcet/node-upnp-client.git"
