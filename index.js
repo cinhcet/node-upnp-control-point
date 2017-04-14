@@ -168,26 +168,51 @@ UPnPControlPoint.prototype.invokeActionParsed = function(actionName, args, servi
       callback(err);
       return;
     }
-    me.invokeActionRaw(actionName, args, serviceType, serviceDescription['controlURL'], function(err, res) {
-      var parseXML = require('xml2js').parseString;
-      //var stripPrefix = require('xml2js').processors.stripPrefix;
-      parseXML(res, {explicitArray: false}, function(err, parsedData) {
-        if(err) {
-          callback(err);
-          return;
-        }
-        extractActionResponse(parsedData, actionName, serviceType, function(err, extractedData) {
+    generateCorrectArgs(args, serviceDescription['actions'][actionName], function(err, params) {
+      if(err) {
+        callback(err);
+        return;
+      }
+      me.invokeActionRaw(actionName, params, serviceType, serviceDescription['controlURL'], function(err, res) {
+        var parseXML = require('xml2js').parseString;
+        parseXML(res, {explicitArray: false}, function(err, parsedData) {
           if(err) {
-            callback(err, res);
-          } else {
-            var returnedData = extractedData;
-            returnedData.raw = res;
-            callback(null, returnedData);
+            callback(err);
+            return;
           }
+          extractActionResponse(parsedData, actionName, serviceType, function(err, extractedData) {
+            if(err) {
+              callback(err, res);
+            } else {
+              var returnedData = extractedData;
+              returnedData.serviceType = serviceType;
+              returnedData.raw = res;
+              callback(null, returnedData);
+            }
+          });
         });
       });
     });
   }, forceReload);
+}
+
+function generateCorrectArgs(args, action, callback) {
+  if(!action['argument']) {
+    callback(null, new Map());
+  } else {
+    var argList = action['argument'];
+    if(!Array.isArray(argList)) {
+      argList = [argList];
+    }
+    var params = new Map();
+    for(var i = 0; i < argList.length; i++) {
+      if(args.hasOwnProperty(argList[i].name) && argList[i].direction === 'in') {
+        params.set(argList[i].name, args[argList[i].name]);
+      }
+    }
+    callback(null, params);
+    //TODO error handling
+  }
 }
 
 function extractActionResponse(parsedData, actionName, serviceType, callback) {
@@ -231,6 +256,9 @@ function extractActionResponse(parsedData, actionName, serviceType, callback) {
   var key = splittedKeys[1];
   if(key.indexOf(actionName + 'Response') >= 0) {
     parsedData = parsedData[keys[0]];
+    if(parsedData.hasOwnProperty('$')) {
+      delete parsedData['$'];
+    }
     var d = {};
     d[key] = parsedData;
     callback(null, d);
@@ -340,7 +368,7 @@ UPnPControlPoint.prototype.subscribe = function(serviceType, callback, forceRelo
         'TIMEOUT': 'Second-' + EVENT_TIMEOUT
       };
       var req = http.request(opts, function(res) {
-        if(res.headers.hasOwnProperty('sid') && res.headers.hasOwnProperty('timeout')) {
+        if(res.statusCode === 200 && res.headers.hasOwnProperty('sid') && res.headers.hasOwnProperty('timeout')) {
           var sid = res.headers.sid;
           var parsedEventTimeout = parseInt(res.headers['timeout'].substr(7))*1000-10000;
           me.eventSubscriptions[sid] = {'eventURL': eventURL
@@ -351,7 +379,7 @@ UPnPControlPoint.prototype.subscribe = function(serviceType, callback, forceRelo
           me.emit('subscribed', {'sid': sid, 'serviceType': serviceType});
           callback(null);
         } else {
-          var err = new Error('Header malformed');
+          var err = new Error('Subscription error');
           callback(err);
         }
       });
@@ -391,13 +419,13 @@ UPnPControlPoint.prototype.unsubscribe = function(serviceType, callback) {
           'SID': eventSid
         };
         var req = http.request(opts, function(res) {
+          me.emit('unsubscribed', {'sid': eventSid, 'serviceType': serviceType});
+          clearTimeout(me.eventSubscriptions[eventSid]['timer']);
+          delete me.eventSubscriptions[eventSid];
           if(res.statusCode !== 200) {
             var err = new Error('unsubscribe error');
             callback(err);
           } else {
-            me.emit('unsubscribed', {'sid': eventSid, 'serviceType': serviceType});
-            clearTimeout(me.eventSubscriptions[eventSid]['timer']);
-            delete me.eventSubscriptions[eventSid];
             callback(null);
           }
         });
@@ -528,6 +556,11 @@ UPnPControlPoint.prototype.renewEventSubscription = function renewEventSubscript
     'TIMEOUT': 'Second-' + EVENT_TIMEOUT
   };
   var req = http.request(opts, function(res) {
+    if(res.statusCode !== 200) {
+      var err = new Error('Resubscription error');
+      me.emit('error', err);
+      return;
+    }
     if(res.headers.hasOwnProperty('sid') && res.headers.hasOwnProperty('timeout')) {
       var sid = res.headers.sid;
       var parsedEventTimeout = parseInt(res.headers['timeout'].substr(7))*1000-10000;
@@ -541,7 +574,7 @@ UPnPControlPoint.prototype.renewEventSubscription = function renewEventSubscript
     }
     res.on('error', function(err) {
       me.emit('error', err);
-    })
+    });
   });
   req.on('error', function(err) {
     me.emit('error', err);
@@ -557,12 +590,18 @@ function generateDeviceURL(serviceDescriptionUrl) {
 function generateSOAPMessage(actionName, args, serviceType) {
   var message = soapMessageEnvelopeBegin;
   message += '<u:' + actionName + ' xmlns:u="' + serviceType + '">';
+  for(var arg of args) {
+    message += '<' + arg[0] + '>';
+    message += arg[1];
+    message += '</' + arg[0] + '>';
+  }
+  /*
   Object.keys(args).forEach(function(argumentName) {
     var argumentValue = args[argumentName];
     message += '<' + argumentName + '>';
     message += argumentValue;
     message += '</' + argumentName + '>';
-  });
+  });*/
   message += '</u:' + actionName + '>';
   message += soapMessageEnvelopeEnd;
   return message;
