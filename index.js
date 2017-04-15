@@ -207,13 +207,23 @@ function generateCorrectArgs(args, action, callback) {
     var params = new Map();
     for(var i = 0; i < argList.length; i++) {
       if(args.hasOwnProperty(argList[i].name) && argList[i].direction === 'in') {
-        params.set(argList[i].name, args[argList[i].name]);
+        var value = args[argList[i].name].toString();
+        value = escapeXML(value);
+        params.set(argList[i].name, value);
       }
     }
     callback(null, params);
     //TODO error handling
   }
 }
+
+//http://stackoverflow.com/questions/7918868/how-to-escape-xml-entities-in-javascript
+function escapeXML(str) {
+  str = str.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  str = str.replace(/&(?!(amp;)|(lt;)|(gt;)|(quot;)|(#39;)|(apos;))/g, "&amp;");
+  str = str.replace(/([^\\])((\\\\)*)\\(?![\\/{])/g, "$1\\\\$2");
+  return str;
+};
 
 function extractActionResponse(parsedData, actionName, serviceType, callback) {
   var keys = Object.keys(parsedData);
@@ -595,13 +605,6 @@ function generateSOAPMessage(actionName, args, serviceType) {
     message += arg[1];
     message += '</' + arg[0] + '>';
   }
-  /*
-  Object.keys(args).forEach(function(argumentName) {
-    var argumentValue = args[argumentName];
-    message += '<' + argumentName + '>';
-    message += argumentValue;
-    message += '</' + argumentName + '>';
-  });*/
   message += '</u:' + actionName + '>';
   message += soapMessageEnvelopeEnd;
   return message;
