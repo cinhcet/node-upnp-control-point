@@ -435,9 +435,11 @@ UPnPControlPoint.prototype.unsubscribe = function(serviceType, callback) {
           'SID': eventSid
         };
         var req = http.request(opts, function(res) {
-          me.emit('unsubscribed', {'sid': eventSid, 'serviceType': serviceType});
-          clearTimeout(me.eventSubscriptions[eventSid]['timer']);
-          delete me.eventSubscriptions[eventSid];
+          if(me.eventSubscriptions.hasOwnProperty(eventSid)) {
+            clearTimeout(me.eventSubscriptions[eventSid]['timer']);
+            delete me.eventSubscriptions[eventSid];
+            me.emit('unsubscribed', {'sid': eventSid, 'serviceType': serviceType});
+          }
           if(res.statusCode !== 200) {
             var err = new Error('unsubscribe error');
             callback(err);
@@ -567,13 +569,14 @@ UPnPControlPoint.prototype.cleanUp = function() {
   Object.keys(me.eventSubscriptions).forEach(function(subscription) {
     clearTimeout(subscription['timer']);
   });
-  me.eventSubscriptions = null;
-  me.eventListenServer.close();
+  me.eventSubscriptions = {};
+  if(me.eventListenServer) me.eventListenServer.close();
   me.eventListenServer = null;
   me.deviceDescriptionParsed = null;
   me.serviceDescriptionsParsed = {};
   me.emit('eventListenServerListening', false);
   me.eventListenServerListening = false;
+  me.removeAllListeners();
 }
 
 UPnPControlPoint.prototype.renewEventSubscription = function renewEventSubscription(eventURL, sid) {
@@ -594,7 +597,7 @@ UPnPControlPoint.prototype.renewEventSubscription = function renewEventSubscript
       }, 1000);
       return;
     }
-    if(res.headers.hasOwnProperty('sid') && res.headers.hasOwnProperty('timeout')) {
+    if(res.headers.hasOwnProperty('sid') && res.headers.hasOwnProperty('timeout') && me.eventSubscriptions.hasOwnProperty(sid)) {
       var sidR = res.headers.sid;
       if(sidR !== sid) {
         var err = new Error('Resubscription error');
