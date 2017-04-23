@@ -1,4 +1,6 @@
 /**
+ * Copyright 2017 cinhcet@gmail.com
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -174,6 +176,10 @@ UPnPControlPoint.prototype.invokeActionParsed = function(actionName, args, servi
         return;
       }
       me.invokeActionRaw(actionName, params, serviceType, serviceDescription['controlURL'], function(err, res) {
+        if(err) {
+          callback(err);
+          return;
+        }
         var parseXML = require('xml2js').parseString;
         parseXML(res, {explicitArray: false}, function(err, parsedData) {
           if(err) {
@@ -556,6 +562,20 @@ UPnPControlPoint.prototype.closeEventListenServer = function(callback) {
   });
 }
 
+UPnPControlPoint.prototype.cleanUp = function() {
+  var me = this;
+  Object.keys(me.eventSubscriptions).forEach(function(subscription) {
+    clearTimeout(subscription['timer']);
+  });
+  me.eventSubscriptions = null;
+  me.eventListenServer.close();
+  me.eventListenServer = null;
+  me.deviceDescriptionParsed = null;
+  me.serviceDescriptionsParsed = {};
+  me.emit('eventListenServerListening', false);
+  me.eventListenServerListening = false;
+}
+
 UPnPControlPoint.prototype.renewEventSubscription = function renewEventSubscription(eventURL, sid) {
   var me = this;
   var eventURLAbsolute = this.deviceURL + eventURL;
@@ -569,10 +589,21 @@ UPnPControlPoint.prototype.renewEventSubscription = function renewEventSubscript
     if(res.statusCode !== 200) {
       var err = new Error('Resubscription error');
       me.emit('error', err);
+      setTimeout(function() {
+        me.renewEventSubscription(eventURL, sid);
+      }, 1000);
       return;
     }
     if(res.headers.hasOwnProperty('sid') && res.headers.hasOwnProperty('timeout')) {
-      var sid = res.headers.sid;
+      var sidR = res.headers.sid;
+      if(sidR !== sid) {
+        var err = new Error('Resubscription error');
+        me.emit('error', err);
+        setTimeout(function() {
+          me.renewEventSubscription(eventURL, sid);
+        }, 1000);
+        return;
+      }
       var parsedEventTimeout = parseInt(res.headers['timeout'].substr(7))*1000-10000;
       me.eventSubscriptions[sid]['timer'] = setTimeout(function() {
         me.renewEventSubscription(eventURL, sid);
