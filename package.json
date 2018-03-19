@@ -1,6 +1,6 @@
 {
   "name": "node-upnp-control-point",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "An upnp control point library useful for control, eventing, device and service description",
   "main": "index.js",
   "keywords": [
