@@ -389,9 +389,7 @@ UPnPControlPoint.prototype.subscribe = function(serviceType, callback, forceRelo
           var parsedEventTimeout = parseInt(res.headers['timeout'].substr(7))*1000-10000;
           me.eventSubscriptions[sid] = {'eventURL': eventURL
                                         ,'serviceType': serviceType};
-          me.eventSubscriptions[sid]['timer'] = setTimeout(function() {
-            me.renewEventSubscription(eventURL, sid);
-          }, parsedEventTimeout);
+          me.eventSubscriptions[sid]['timer'] = setTimeout(me.renewEventSubscription.bind(me, eventURL, sid), parsedEventTimeout);
           me.emit('subscribed', {'sid': sid, 'serviceType': serviceType});
           callback(null);
         } else {
@@ -592,9 +590,7 @@ UPnPControlPoint.prototype.renewEventSubscription = function renewEventSubscript
     if(res.statusCode !== 200) {
       var err = new Error('Resubscription error');
       me.emit('error', err);
-      setTimeout(function() {
-        me.renewEventSubscription(eventURL, sid);
-      }, 1000);
+      setTimeout(me.renewEventSubscription.bind(me, eventURL, sid), 1000);
       return;
     }
     if(res.headers.hasOwnProperty('sid') && res.headers.hasOwnProperty('timeout') && me.eventSubscriptions.hasOwnProperty(sid)) {
@@ -602,18 +598,14 @@ UPnPControlPoint.prototype.renewEventSubscription = function renewEventSubscript
       if(sidR !== sid) {
         var err = new Error('Resubscription error');
         me.emit('error', err);
-        setTimeout(function() {
-          me.renewEventSubscription(eventURL, sid);
-        }, 1000);
+        setTimeout(me.renewEventSubscription.bind(me, eventURL, sid), 1000);
         return;
       }
       var parsedEventTimeout = parseInt(res.headers['timeout'].substr(7))*1000-10000;
-      me.eventSubscriptions[sid]['timer'] = setTimeout(function() {
-        me.renewEventSubscription(eventURL, sid);
-      }, parsedEventTimeout);
+      me.eventSubscriptions[sid]['timer'] = setTimeout(me.renewEventSubscription.bind(me, eventURL, sid), parsedEventTimeout);
       me.emit('subscribed', {'sid': sid, 'serviceType': me.eventSubscriptions[sid]['serviceType']});
     } else {
-      var err = new Error('Header malformed');
+      var err = new Error('Header malformed: ' + util.inspect(res.headers, false, null));
       me.emit('error', err);
     }
     res.on('error', function(err) {
