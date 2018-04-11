@@ -577,7 +577,7 @@ UPnPControlPoint.prototype.cleanUp = function() {
   me.removeAllListeners();
 }
 
-UPnPControlPoint.prototype.renewEventSubscription = function renewEventSubscription(eventURL, sid) {
+UPnPControlPoint.prototype.renewEventSubscription = function(eventURL, sid) {
   var me = this;
   var eventURLAbsolute = this.deviceURL + eventURL;
   var opts = urlLib.parse(eventURLAbsolute);
