@@ -225,9 +225,14 @@ function generateCorrectArgs(args, action, callback) {
 
 //http://stackoverflow.com/questions/7918868/how-to-escape-xml-entities-in-javascript
 function escapeXML(str) {
-  str = str.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-  str = str.replace(/&(?!(amp;)|(lt;)|(gt;)|(quot;)|(#39;)|(apos;))/g, "&amp;");
-  str = str.replace(/([^\\])((\\\\)*)\\(?![\\/{])/g, "$1\\\\$2");
+  str = str.replace(/&/g, '&amp;')
+           .replace(/</g, '&lt;')
+           .replace(/>/g, '&gt;')
+           .replace(/"/g, '&quot;')
+           .replace(/'/g, '&apos;');
+  //str = str.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  //str = str.replace(/&(?!(amp;)|(lt;)|(gt;)|(quot;)|(#39;)|(apos;))/g, "&amp;");
+  //str = str.replace(/([^\\])((\\\\)*)\\(?![\\/{])/g, "$1\\\\$2");
   return str;
 };
 
