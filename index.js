@@ -68,6 +68,27 @@ UPnPControlPoint.prototype.getDeviceDescriptionParsed = function(callback, force
         if(!Array.isArray(services)) {
           services = [services];
         }
+
+        // the following code is for devices with embedded devices
+        if(   me.deviceDescriptionParsed['description']['root']['device']['deviceList']
+           && me.deviceDescriptionParsed['description']['root']['device']['deviceList']['device']) {
+          let devicesEmbedded = me.deviceDescriptionParsed['description']['root']['device']['deviceList']['device'];
+          if(!Array.isArray(devicesEmbedded)) {
+            devicesEmbedded = [devicesEmbedded];
+          }
+          for(let i = 0; i < devicesEmbedded.length; i++) {
+            let device = devicesEmbedded[i];
+            if(device['serviceList'] && device['serviceList']['service']) {
+              let servicesEmebdded = device['serviceList']['service'];
+              if(!Array.isArray(servicesEmebdded)) {
+                servicesEmebdded = [servicesEmebdded];
+              }
+              services.push(...servicesEmebdded);
+            }
+          }
+        }
+        // end code for embedded devices
+
         for(var i = 0; i < services.length; i++) {
           var service = services[i];
           var serviceType = service['serviceType'];
@@ -75,7 +96,7 @@ UPnPControlPoint.prototype.getDeviceDescriptionParsed = function(callback, force
           var eventSubURL = service['eventSubURL'];
           var serviceDescriptionUrl = service['SCPDURL'];
           
-          // this is a fix for the gebera media server
+          // TODO propper URL resolve
           if(serviceDescriptionUrl.charAt(0) !== '/') {
             serviceDescriptionUrl = '/' + serviceDescriptionUrl;
           }
