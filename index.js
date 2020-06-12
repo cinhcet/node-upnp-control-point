@@ -74,6 +74,12 @@ UPnPControlPoint.prototype.getDeviceDescriptionParsed = function(callback, force
           var controlURL = service['controlURL'];
           var eventSubURL = service['eventSubURL'];
           var serviceDescriptionUrl = service['SCPDURL'];
+          
+          // this is a fix for the gebera media server
+          if(serviceDescriptionUrl.charAt(0) !== '/') {
+            serviceDescriptionUrl = '/' + serviceDescriptionUrl;
+          }
+          
           if(!serviceType || !controlURL || !eventSubURL || !serviceDescriptionUrl) {
             var err = new Error('Device description malformed');
             callback(err);
